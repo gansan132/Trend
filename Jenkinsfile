@@ -90,4 +90,30 @@ pipeline {
             echo 'Pipeline failed. Check the Jenkins console output.'
         }
     }
+        stage('Deploy to EKS') {
+            steps {
+                sh '''
+                    export AWS_DEFAULT_REGION=ap-south-2
+                    export KUBECONFIG=/var/lib/jenkins/.kube/config
+
+                    echo "Deploying image: ${IMAGE_NAME}:${BUILD_NUMBER}"
+
+                    kubectl set image deployment/trend-app \
+                      trend-app=${IMAGE_NAME}:${BUILD_NUMBER}
+
+                    echo "Waiting for deployment rollout..."
+
+                    kubectl rollout status deployment/trend-app \
+                      --timeout=180s
+
+                    echo "Checking application pods..."
+
+                    kubectl get pods -l app=trend-app
+
+                    echo "Checking application service..."
+
+                    kubectl get svc trend-app-service
+                '''
+            }
+        }
 }
