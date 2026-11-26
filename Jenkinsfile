@@ -73,23 +73,6 @@ pipeline {
                 }
             }
         }
-    }
-
-    post {
-        always {
-            sh '''
-                docker rm -f trend-ci-test 2>/dev/null || true
-            '''
-        }
-
-        success {
-            echo 'Trend application pipeline completed successfully!'
-        }
-
-        failure {
-            echo 'Pipeline failed. Check the Jenkins console output.'
-        }
-    }
         stage('Deploy to EKS') {
             steps {
                 sh '''
@@ -116,4 +99,21 @@ pipeline {
                 '''
             }
         }
+    }
+
+    post {
+        always {
+            sh '''
+                docker rm -f trend-ci-test 2>/dev/null || true
+            '''
+        }
+
+        success {
+            echo 'Trend application pipeline completed successfully!'
+        }
+
+        failure {
+            echo 'Pipeline failed. Check the Jenkins console output.'
+        }
+    }
 }
