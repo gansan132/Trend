@@ -83,30 +83,61 @@ pipeline {
         }
         stage('Deploy to EKS') {
             steps {
-                sh '''
-                    export AWS_DEFAULT_REGION=ap-south-2
-                    export KUBECONFIG=/var/lib/jenkins/.kube/config
+                sh '''#!/bin/bash
+                set +x
+                set -e
 
-                    echo "Deploying image: ${IMAGE_NAME}:${BUILD_NUMBER}"
+            export AWS_DEFAULT_REGION=ap-south-2
 
-                    kubectl set image deployment/trend-app \
-                      trend-app=${IMAGE_NAME}:${BUILD_NUMBER}
+            echo "Assuming dedicated Jenkins deployment role..."
 
-                    echo "Waiting for deployment rollout..."
+            read AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN <<< "$(
+                aws sts assume-role \
+                  --role-arn arn:aws:iam::829786863239:role/Trend-Jenkins-EKS-Deploy-Role \
+                  --role-session-name Jenkins-${BUILD_NUMBER} \
+                  --query "Credentials.[AccessKeyId,SecretAccessKey,SessionToken]" \
+                  --output text
+            )"
 
-                    kubectl rollout status deployment/trend-app \
-                      --timeout=180s
+            export AWS_ACCESS_KEY_ID
+            export AWS_SECRET_ACCESS_KEY
+            export AWS_SESSION_TOKEN
 
-                    echo "Checking application pods..."
+            echo "Verifying AWS identity..."
+            aws sts get-caller-identity
 
-                    kubectl get pods -l app=trend-app
+            export KUBECONFIG=$(mktemp)
 
-                    echo "Checking application service..."
-
-                    kubectl get svc trend-app-service
-                '''
+            cleanup() {
+                rm -f "$KUBECONFIG"
             }
-        }
+            trap cleanup EXIT
+
+            echo "Connecting to EKS..."
+            aws eks update-kubeconfig \
+              --name trend-eks \
+              --region ap-south-2 \
+              --kubeconfig "$KUBECONFIG"
+
+            echo "Deploying image: ${IMAGE_NAME}:${BUILD_NUMBER}"
+
+            kubectl set image deployment/trend-app \
+              trend-app=${IMAGE_NAME}:${BUILD_NUMBER}
+
+            echo "Waiting for deployment rollout..."
+            kubectl rollout status deployment/trend-app \
+              --timeout=180s
+
+            echo "Checking application pods..."
+            kubectl get pods -l app=trend-app
+
+            echo "Checking application service..."
+            kubectl get svc trend-app-service
+
+            echo "Deployment completed using dedicated Jenkins IAM role."
+        '''
+    }
+}
     }
 
     post {
