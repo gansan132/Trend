@@ -49,7 +49,6 @@ pipeline {
                 '''
             }
         }
-
         stage('Push to DockerHub') {
             steps {
                 withCredentials([
@@ -60,6 +59,17 @@ pipeline {
                     )
                 ]) {
                     sh '''
+                        set +x
+
+                        export DOCKER_CONFIG=$(mktemp -d)
+
+                        cleanup() {
+                            docker logout >/dev/null 2>&1 || true
+                            rm -rf "$DOCKER_CONFIG"
+                        }
+
+                        trap cleanup EXIT
+
                         printf '%s' "$DOCKERHUB_TOKEN" | \
                           docker login \
                           --username "$DOCKERHUB_USERNAME" \
@@ -67,8 +77,6 @@ pipeline {
 
                         docker push ${IMAGE_NAME}:${BUILD_NUMBER}
                         docker push ${IMAGE_NAME}:latest
-
-                        docker logout
                     '''
                 }
             }
