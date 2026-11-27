@@ -89,3 +89,5 @@ No dependencies are required
 No build process is required
 
 No package.json is needed
+
+Automated CI/CD deployment using Jenkins and AWS EKS.
